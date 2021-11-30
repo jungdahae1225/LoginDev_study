@@ -2,6 +2,8 @@ package hello.login.web.login;
 
 import hello.login.domain.login.LoginService;
 import hello.login.domain.member.Member;
+import hello.login.web.SessionConst;
+import hello.login.web.session.SessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -11,21 +13,25 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
 
 @Slf4j
 @Controller
 @RequiredArgsConstructor
 public class LoginController {
+
     private final LoginService loginService;
+    private final SessionManager sessionManager;
 
     @GetMapping("/login")
     public String loginForm(@ModelAttribute("loginForm") LoginForm form) {
         return "login/loginForm";
     }
 
-    @PostMapping("/login") //정보가 들어오면 돌리기 시작
+    //@PostMapping("/login") //정보가 들어오면 돌리기 시작
     public String login(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletResponse response) {
 
         if (bindingResult.hasErrors()) { //정보가 넘어오지 않으면 다시 로그인 첫화면으로
@@ -51,10 +57,92 @@ public class LoginController {
         return "redirect:/";
     }
 
+    //@PostMapping("/login") //정보가 들어오면 돌리기 시작
+    public String loginV2(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletResponse response) {
+
+        if (bindingResult.hasErrors()) { //정보가 넘어오지 않으면 다시 로그인 첫화면으로
+            return "login/loginForm";
+        }
+
+        Member loginMember = loginService.login(form.getLoginId(), form.getPassword()); //loginService로 확인
+
+        log.info("login? {}", loginMember);
+
+        if (loginMember == null) {
+            bindingResult.reject("loginFail", "아이디 또는 비밀번호가 맞지 않습니다.");
+            return "login/loginForm";//정보가 넘어오지 않으면 다시 로그인 첫화면으로
+        }
+
+        //로그인 성공 처리 TODO
+        //세션없이 쿠키만을 사용하던 이전 로직과 달리, 세션 관리자를 통해 세션을 생성하고, 회원 데이터를 보관하면 된다.
+        /*
+        기존 로직
+        Cookie idCookie = new Cookie("memberId", String.valueOf(loginMember.getId()));
+        response.addCookie(idCookie);*/
+
+        sessionManager.createSession(loginMember,response);
+
+        return "redirect:/";
+    }
+
+    @PostMapping("/login") //정보가 들어오면 돌리기 시작
+    public String loginV3(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletRequest request) { //이건 request가 필요!!
+
+        if (bindingResult.hasErrors()) { //정보가 넘어오지 않으면 다시 로그인 첫화면으로
+            return "login/loginForm";
+        }
+
+        Member loginMember = loginService.login(form.getLoginId(), form.getPassword()); //loginService로 확인
+
+        log.info("login? {}", loginMember);
+
+        if (loginMember == null) {
+            bindingResult.reject("loginFail", "아이디 또는 비밀번호가 맞지 않습니다.");
+            return "login/loginForm";//정보가 넘어오지 않으면 다시 로그인 첫화면으로
+        }
+
+        //로그인 성공 처리 TODO
+        //세션없이 쿠키만을 사용하던 이전 로직과 달리, 세션 관리자를 통해 세션을 생성하고, 회원 데이터를 보관하면 된다.
+        /*
+        기존 로직
+        Cookie idCookie = new Cookie("memberId", String.valueOf(loginMember.getId()));
+        response.addCookie(idCookie);*/
+
+        //우리가 만든 세션을 사용하는 경우
+        // sessionManager.createSession(loginMember,response);
+
+        //세션이 있으면 있는 세션 반환, 없으면 신규 세션 생성해준다
+        HttpSession session = request.getSession();
+        //세션에 로그인 회원 정보 보관
+        session.setAttribute(SessionConst.LOGIN_MEMBER, loginMember);
+
+        return "redirect:/";
+    }
+
     //로그아웃 로직
-    @PostMapping("/logout")
+    //@PostMapping("/logout")
     public String logout(HttpServletResponse response) {
         expireCookie(response, "memberId"); //쿠키 버리기
+        return "redirect:/";
+    }
+
+    //로그아웃 로직
+    //@PostMapping("/logout")
+    public String logoutV2(HttpServletRequest request) { //여기는 request가 필요하다!!
+        //세션을 삭제한다.
+        HttpSession session = request.getSession(false); //세션이 이미 없다면 새로 만들게 하지 않기 위해 옵션을 false로 준다.
+
+        if (session != null) {
+            session.invalidate(); //세션과 그 안의 데이터 모두 지워준다
+        }
+
+        return "redirect:/";
+    }
+
+    //로그아웃 로직
+    @PostMapping("/logout")
+    public String logoutV3(HttpServletRequest request) { //여기는 request가 필요하다!!
+        sessionManager.expire(request); //쿠키 버리기
         return "redirect:/";
     }
     /***
