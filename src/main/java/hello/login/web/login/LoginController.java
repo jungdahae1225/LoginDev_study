@@ -11,6 +11,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
@@ -85,7 +86,7 @@ public class LoginController {
         return "redirect:/";
     }
 
-    @PostMapping("/login") //정보가 들어오면 돌리기 시작
+    //@PostMapping("/login") //정보가 들어오면 돌리기 시작
     public String loginV3(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletRequest request) { //이건 request가 필요!!
 
         if (bindingResult.hasErrors()) { //정보가 넘어오지 않으면 다시 로그인 첫화면으로
@@ -117,6 +118,38 @@ public class LoginController {
         session.setAttribute(SessionConst.LOGIN_MEMBER, loginMember);
 
         return "redirect:/";
+    }
+
+    /**
+     * 로그인 이후 redirect 처리
+     */
+    @PostMapping("/login")
+    public String loginV4(
+            @Valid @ModelAttribute LoginForm form, BindingResult bindingResult,
+            @RequestParam(defaultValue = "/") String redirectURL, //redirect온 url이 없으면 그냥 home으로 보낼 것임
+            HttpServletRequest request) {
+       
+        if (bindingResult.hasErrors()) {
+            return "login/loginForm";
+        }
+       
+        Member loginMember = loginService.login(form.getLoginId(), form.getPassword());
+        log.info("login? {}", loginMember);
+
+        if (loginMember == null) {
+            bindingResult.reject("loginFail", "아이디 또는 비밀번호가 맞지 않습니다.");
+            return "login/loginForm";
+        }
+
+        //로그인 성공 처리
+        //세션이 있으면 있는 세션 반환, 없으면 신규 세션 생성
+        HttpSession session = request.getSession();
+
+        //세션에 로그인 회원 정보 보관
+        session.setAttribute(SessionConst.LOGIN_MEMBER, loginMember);
+
+        //redirectURL 적용
+        return "redirect:" + redirectURL; //넘어온 redirectURL을 받아서 그 화면으로 돌아가도록 설정
     }
 
     //로그아웃 로직
