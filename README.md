@@ -1,5 +1,7 @@
 # LoginDev_study
 
+토이프로젝트로 구현했던 로그인, 회원가입을 Spring으로 다시 구현, 복습
+
 JAVA Spring으로 구현
 
 ![로그인](https://user-images.githubusercontent.com/79850020/144234620-251e4635-fced-4519-afc1-6114a6092c7e.GIF)
